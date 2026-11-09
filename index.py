@@ -53,8 +53,17 @@ def prever_evasao(alunos: List[DadosAluno]):
 
     resultados = []
     for i, aluno in enumerate(alunos):
+        sem_historico = bool((X_input.iloc[i] == 0).all())
+
+        if sem_historico:
+            resultados.append({
+                "id": aluno.id if aluno.id else str(i),
+                "probabilidade_evasao_percent": None,
+                "nivel_risco": "sem_historico"
+            })
+            continue
+
         prob = float(probabilidades[i])
-        
         if prob < 35.0:
             nivel = "baixo"
         elif 35.0 <= prob <= 65.0:

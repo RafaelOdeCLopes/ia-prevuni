@@ -75,6 +75,9 @@ Resposta:
 | `baixo` | `< 35%` |
 | `moderado` | `35% – 65%` |
 | `alto` | `> 65%` |
+| `sem_historico` | não calculada (`probabilidade_evasao_percent` retorna `null`) |
+
+O nível `sem_historico` é retornado quando **todos** os indicadores do aluno são zero (por exemplo, um aluno recém-ingresso, sem nenhuma matrícula concluída). Nesse caso a API não executa o modelo.
 
 ## Modelo
 
@@ -113,7 +116,7 @@ Com o limiar de 0,25, o modelo detecta cerca de 68% dos alunos que evadem, e pou
 
 ```bash
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn index:app --reload
 ```
 
 A API ficará disponível em `http://127.0.0.1:8000`, e a documentação interativa em `http://127.0.0.1:8000/docs`.
