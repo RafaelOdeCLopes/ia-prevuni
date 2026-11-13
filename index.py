@@ -64,9 +64,9 @@ def prever_evasao(alunos: List[DadosAluno]):
             continue
 
         prob = float(probabilidades[i])
-        if prob < 35.0:
+        if prob < 40.0:
             nivel = "baixo"
-        elif 35.0 <= prob <= 65.0:
+        elif 40.0 <= prob <= 60.0:
             nivel = "moderado"
         else:
             nivel = "alto"
