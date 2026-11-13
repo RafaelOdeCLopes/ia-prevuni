@@ -1,10 +1,10 @@
 import os
+import json
+import math
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-import joblib
-import pandas as pd
 
 app = FastAPI(title="API de Previsão de Evasão Escolar")
 
@@ -16,8 +16,20 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-caminho_modelo = os.path.join(os.path.dirname(__file__), 'modelo_evasao.joblib')
-modelo = joblib.load(caminho_modelo)
+caminho_modelo = os.path.join(os.path.dirname(__file__), 'modelo_evasao.json')
+with open(caminho_modelo, 'r', encoding='utf-8') as f:
+    PARAMS = json.load(f)
+
+FEATURES = PARAMS['features']
+
+
+def calcular_probabilidade(valores: dict) -> float:
+    z = PARAMS['intercept']
+    for nome, media, escala, coef in zip(FEATURES, PARAMS['mean'], PARAMS['scale'], PARAMS['coef']):
+        z += coef * (valores[nome] - media) / escala
+    z = max(-50.0, min(50.0, z))
+    return 1.0 / (1.0 + math.exp(-z))
+
 
 class DadosAluno(BaseModel):
     id: Optional[str] = None
@@ -27,43 +39,28 @@ class DadosAluno(BaseModel):
     total_reprovacoes_pendencias: int
     percentual_conclusao_curso: float
 
-FEATURES = [
-    'media_notas', 
-    'taxa_aprovacao', 
-    'total_ch_cumprida', 
-    'total_reprovacoes_pendencias', 
-    'percentual_conclusao_curso'
-]
 
 @app.get("/")
 def home():
     return {"status": "API rodando com sucesso"}
 
+
 @app.post("/prever-evasao")
 def prever_evasao(alunos: List[DadosAluno]):
-    dados_lista = [
-        aluno.model_dump() if hasattr(aluno, 'model_dump') else aluno.dict() 
-        for aluno in alunos
-    ]
-    
-    df_input = pd.DataFrame(dados_lista)
-    X_input = df_input[FEATURES]
-    
-    probabilidades = modelo.predict_proba(X_input)[:, 1] * 100
-
     resultados = []
     for i, aluno in enumerate(alunos):
-        sem_historico = bool((X_input.iloc[i] == 0).all())
+        valores = aluno.model_dump() if hasattr(aluno, 'model_dump') else aluno.dict()
+        aluno_id = aluno.id if aluno.id else str(i)
 
-        if sem_historico:
+        if all(valores[f] == 0 for f in FEATURES):
             resultados.append({
-                "id": aluno.id if aluno.id else str(i),
+                "id": aluno_id,
                 "probabilidade_evasao_percent": None,
                 "nivel_risco": "sem_historico"
             })
             continue
 
-        prob = float(probabilidades[i])
+        prob = calcular_probabilidade(valores) * 100
         if prob < 40.0:
             nivel = "baixo"
         elif 40.0 <= prob <= 60.0:
@@ -72,9 +69,9 @@ def prever_evasao(alunos: List[DadosAluno]):
             nivel = "alto"
 
         resultados.append({
-            "id": aluno.id if aluno.id else str(i),
+            "id": aluno_id,
             "probabilidade_evasao_percent": round(prob, 2),
             "nivel_risco": nivel
         })
-        
+
     return resultados

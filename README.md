@@ -85,10 +85,10 @@ O nível `sem_historico` é retornado quando **todos** os indicadores do aluno s
 
 ## Modelo
 
-- **Algoritmo:** Regressão Logística com padronização das variáveis (`StandardScaler` + `LogisticRegression`, `C=0.05`), em um pipeline do Scikit-Learn.
+- **Algoritmo:** Regressão Logística com padronização das variáveis (`StandardScaler` + `LogisticRegression`, `C=0.05`), em um pipeline do Scikit-Learn usado no treinamento.
 - **Atributos:** os cinco indicadores descritos acima.
 - **Limiar de avaliação:** 0,30, usado no treinamento para calcular as métricas abaixo. A API **não** aplica esse limiar: ela retorna a probabilidade e a classifica pelos cortes de risco da seção anterior.
-- **Persistência:** modelo exportado com Joblib (`modelo_evasao.joblib`) e carregado na inicialização da API. Depois da avaliação, o modelo final é treinado com todos os alunos disponíveis.
+- **Persistência:** depois da avaliação, o modelo final é treinado com todos os alunos disponíveis e seus parâmetros (médias e desvios do `StandardScaler`, coeficientes e intercepto da regressão) são exportados para `modelo_evasao.json`. A API aplica esses parâmetros diretamente, em Python puro, sem depender do Scikit-Learn em produção. O resultado é idêntico ao do pipeline original (diferença da ordem de 1e-16).
 
 ### Dados de treinamento
 
@@ -121,16 +121,17 @@ Como o conjunto de teste é pequeno, as métricas são aproximadas: o AUC varia 
 
 - **Python** e **FastAPI** (API)
 - **Uvicorn** (servidor)
-- **Scikit-Learn 1.6.1** (modelo e pipeline) e **Joblib 1.6.0** (persistência)
-- **Pandas 2.2.3** (processamento de dados)
 - **Pydantic** (validação de entrada)
-- **Google Colab** (treinamento do modelo)
+- **Scikit-Learn** e **Pandas** (treinamento do modelo, no notebook)
+- **Google Colab** (ambiente de treinamento)
 - **Vercel** (deploy)
 
 ## Executando localmente
 
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+.venv\Scripts\activate        # Windows (Mac/Linux: source .venv/bin/activate)
+python -m pip install -r requirements.txt
 uvicorn index:app --reload
 ```
 
@@ -140,7 +141,8 @@ A API ficará disponível em `http://127.0.0.1:8000`, e a documentação interat
 
 - O CORS está liberado para qualquer origem (`allow_origins=["*"]`). Restrinja as origens antes de usar em produção.
 - Os cortes de risco (40% e 60%) são independentes do limiar de avaliação (0,30) usado no treinamento.
-- O arquivo `modelo_evasao.joblib` foi gerado com **scikit-learn 1.6.1**. Use exatamente essa versão (já fixada no `requirements.txt`), pois modelos serializados não têm compatibilidade garantida entre versões diferentes. Ao retreinar o modelo, atualize a versão no `requirements.txt`.
+- O arquivo `modelo_evasao.json` deve ficar na mesma pasta do `index.py`. Para atualizar o modelo, retreine no notebook, gere um novo `modelo_evasao.json` e substitua o arquivo. A API não precisa de alterações.
+- As dependências da API (`fastapi`, `pydantic` e `uvicorn`) são leves de propósito: o treinamento usa bibliotecas pesadas (Scikit-Learn, Pandas), mas elas não são necessárias em produção.
 
 ## Limitações e próximos passos
 
